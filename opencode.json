@@ -1,0 +1,11 @@
+{
+  "mcp": {
+    "local-memory": {
+      "command": "bun",
+      "args": ["src/mcp.ts"],
+      "env": {
+        "MEMORY_API": "http://localhost:3001"
+      }
+    }
+  }
+}
