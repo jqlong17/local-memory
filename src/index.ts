@@ -47,12 +47,18 @@ app.post('/recall', async (c) => {
 app.get('/memory/:userId', async (c) => {
   const userId = c.req.param('userId');
   
-  const results = await db
-    .select()
-    .from(memories)
-    .where(memories.userId.equals(userId));
-  
-  return c.json({ memories: results });
+  try {
+    const { eq } = await import('drizzle-orm');
+    const results = await db
+      .select()
+      .from(memories)
+      .where(eq(memories.userId, userId));
+    
+    return c.json({ memories: results });
+  } catch (error) {
+    console.error('Error fetching memories:', error);
+    return c.json({ error: 'Failed to fetch memories' }, 500);
+  }
 });
 
 const PORT = process.env.PORT || 3001;
