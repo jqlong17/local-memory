@@ -27,6 +27,8 @@ app.post('/memory', async (c) => {
     userId,
     projectId,
     embedding,
+    createdAt: new Date(),
+    updatedAt: new Date(),
   });
 
   return c.json({ id, success: true });

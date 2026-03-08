@@ -328,11 +328,10 @@ describe('Local Memory E2E Tests', () => {
     log('\n4. 检查脚本包含必要的步骤...');
     const requiredSteps = [
       'bun install',
-      'docker',
-      'pgvector',
       'ollama',
       'nomic-embed-text',
-      'opencode.json'
+      'opencode.json',
+      'memory.db'
     ];
     
     for (const step of requiredSteps) {

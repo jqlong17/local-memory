@@ -1,18 +1,18 @@
-import { pgTable, text, timestamp, vector } from 'drizzle-orm/pg-core';
+import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 
-export const memories = pgTable('memories', {
+export const memories = sqliteTable('memories', {
   id: text('id').primaryKey(),
   content: text('content').notNull(),
   userId: text('user_id').notNull(),
   projectId: text('project_id'),
-  embedding: vector('embedding', { dimensions: 768 }),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow(),
+  embedding: text('embedding'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
 });
 
-export const users = pgTable('users', {
+export const users = sqliteTable('users', {
   id: text('id').primaryKey(),
   email: text('email').notNull(),
   name: text('name'),
-  createdAt: timestamp('created_at').defaultNow(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
 });

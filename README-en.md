@@ -36,7 +36,7 @@ This data should never be uploaded to any cloud server - it must be stored entir
 
 ## Core Features
 
-- ✅ **Local Storage** - All data stored in local PostgreSQL database
+- ✅ **Local Storage** - All data stored in local SQLite database
 - ✅ **Vector Search** - Semantic understanding, not just keyword matching
 - ✅ **Fully Open Source** - Transparent code, no black boxes
 - ✅ **Zero Cost** - Free to use
@@ -62,8 +62,8 @@ This data should never be uploaded to any cloud server - it must be stored entir
 ┌──────────────────────────────────────────────────────────────────┐
 │                     Local Memory API Server                       │
 │  ┌────────────────┐    ┌─────────────────┐    ┌──────────────┐  │
-│  │   Hono         │───►│  Embedding      │───►│  PostgreSQL  │  │
-│  │   (Bun)        │    │  Service        │    │  + pgvector  │  │
+│  │   Hono         │───►│  Embedding      │───►│  SQLite      │  │
+│  │   (Bun)        │    │  Service        │    │  Database    │  │
 │  └────────────────┘    └────────┬────────┘    └──────────────┘  │
 │                                  │                                │
 │                                  ▼                                │
@@ -81,7 +81,7 @@ This data should never be uploaded to any cloud server - it must be stored entir
 |-----------|------------|-------------|
 | Runtime | Bun | Fast JavaScript runtime |
 | API Framework | Hono | Lightweight web framework |
-| Database | PostgreSQL + pgvector | Vector database |
+| Database | SQLite | Local file database |
 | Embedding | Ollama + nomic-embed-text | Local vector generation |
 | Integration | MCP SDK | Model Context Protocol |
 
@@ -101,7 +101,7 @@ cd local-memory
 The script will automatically:
 1. Check and install Bun (if not installed)
 2. Install project dependencies
-3. Start PostgreSQL + pgvector container
+3. Initialize SQLite database
 4. Start Ollama service and download embedding model
 5. Initialize database
 6. Start API service
@@ -112,21 +112,14 @@ The script will automatically:
 #### Prerequisites
 
 - [Bun](https://bun.sh) installed
-- [Docker](https://docker.com) installed (for PostgreSQL)
+- No Docker required!
 - [Ollama](https://ollama.com) installed (for local Embedding)
 
 #### 1. Install Dependencies
 
 ```bash
-# Start PostgreSQL + pgvector
-docker run -d --name memory-db \
-  -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=memory \
-  -p 5432:5432 \
-  pgvector/pgvector:pg16
-
-# Enable vector extension
-docker exec memory-db psql -U postgres -d memory -c "CREATE EXTENSION IF NOT EXISTS vector;"
+# Install dependencies
+bun install
 
 # Install Ollama and embedding model
 brew install ollama
@@ -205,12 +198,12 @@ The MCP tools are configured with detailed trigger rules - the AI will automatic
 
 ### Q: Is data really stored completely locally?
 
-**A: Yes!** All data is stored in your own PostgreSQL database, never uploaded to the cloud.
+**A: Yes!** All data is stored in your own SQLite database file, never uploaded to the cloud.
 
 ### Q: How much disk space is needed?
 
 **A:**
-- PostgreSQL base: ~50MB
+- SQLite base: ~10KB (very lightweight)
 - Each memory: ~1KB (including text and 768-dim vector)
 
 ### Q: Which embedding models are supported?
@@ -219,9 +212,11 @@ The MCP tools are configured with detailed trigger rules - the AI will automatic
 
 ### Q: How to view saved memories?
 
+Database file is located at `memory.db` in the project directory:
+
 ```bash
-# Enter database
-docker exec -it memory-db psql -U postgres -d memory
+# View database
+sqlite3 memory.db
 
 # Query memories
 SELECT id, content, created_at FROM memories;
@@ -230,11 +225,11 @@ SELECT id, content, created_at FROM memories;
 ### Q: How to backup memories?
 
 ```bash
-# Export database
-docker exec memory-db pg_dump -U postgres memory > memory_backup.sql
+# Backup database file
+cp memory.db memory_backup.db
 
-# Import database
-docker exec -i memory-db psql -U postgres memory < memory_backup.sql
+# Restore database
+cp memory_backup.db memory.db
 ```
 
 ## Comparison with Cloud Solutions

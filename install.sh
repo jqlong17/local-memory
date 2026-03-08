@@ -17,7 +17,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 # Step 1: Check and install Bun
-echo -e "\n${YELLOW}[1/6] 检查 Bun...${NC}"
+echo -e "\n${YELLOW}[1/5] 检查 Bun...${NC}"
 if command -v bun &> /dev/null; then
     echo -e "${GREEN}✓ Bun 已安装: $(bun --version)${NC}"
 else
@@ -28,47 +28,11 @@ else
 fi
 
 # Step 2: Install dependencies
-echo -e "\n${YELLOW}[2/6] 安装项目依赖...${NC}"
+echo -e "\n${YELLOW}[2/5] 安装项目依赖...${NC}"
 bun install
 
-# Step 3: Check and start Docker
-echo -e "\n${YELLOW}[3/6] 检查 Docker...${NC}"
-if ! command -v docker &> /dev/null; then
-    echo -e "${RED}✗ Docker 未安装，请先安装 Docker Desktop${NC}"
-    exit 1
-fi
-
-if ! docker info &> /dev/null; then
-    echo -e "${YELLOW}启动 Docker Desktop...${NC}"
-    open -a Docker 2>/dev/null || echo -e "${RED}请手动启动 Docker${NC}"
-    echo "等待 Docker 启动..."
-    sleep 5
-fi
-
-# Step 4: Start PostgreSQL + pgvector
-echo -e "\n${YELLOW}[4/6] 启动 PostgreSQL + pgvector...${NC}"
-if docker ps -a --format '{{.Names}}' | grep -q "^memory-db$"; then
-    if docker ps --format '{{.Names}}' | grep -q "^memory-db$"; then
-        echo -e "${GREEN}✓ PostgreSQL 已在运行${NC}"
-    else
-        echo -e "${YELLOW}启动 PostgreSQL...${NC}"
-        docker start memory-db
-    fi
-else
-    echo -e "${YELLOW}创建 PostgreSQL + pgvector 容器...${NC}"
-    docker run -d --name memory-db \
-        -e POSTGRES_PASSWORD=postgres \
-        -e POSTGRES_DB=memory \
-        -p 5432:5432 \
-        pgvector/pgvector:pg16
-    
-    echo -e "${YELLOW}启用 pgvector 扩展...${NC}"
-    sleep 2
-    docker exec memory-db psql -U postgres -d memory -c "CREATE EXTENSION IF NOT EXISTS vector;" 2>/dev/null || true
-fi
-
-# Step 5: Check and start Ollama
-echo -e "\n${YELLOW}[5/6] 检查 Ollama...${NC}"
+# Step 3: Check and start Ollama
+echo -e "\n${YELLOW}[3/5] 检查 Ollama...${NC}"
 if command -v ollama &> /dev/null; then
     echo -e "${GREEN}✓ Ollama 已安装${NC}"
     
@@ -98,9 +62,14 @@ else
     ollama pull nomic-embed-text
 fi
 
-# Step 6: Initialize database
-echo -e "\n${YELLOW}[6/6] 初始化数据库...${NC}"
-echo -e "${GREEN}✓ 数据库表结构已创建${NC}"
+# Step 4: Initialize SQLite database
+echo -e "\n${YELLOW}[4/5] 初始化 SQLite 数据库...${NC}"
+if [ -f "$SCRIPT_DIR/memory.db" ]; then
+    echo -e "${GREEN}✓ 数据库已存在${NC}"
+else
+    echo -e "${YELLOW}创建数据库...${NC}"
+    touch "$SCRIPT_DIR/memory.db"
+fi
 
 # Start API server
 echo -e "\n${GREEN}========================================${NC}"
@@ -113,7 +82,6 @@ if lsof -ti:3002 &> /dev/null; then
     lsof -ti:3002 | xargs kill 2>/dev/null || true
 fi
 
-# Start the server
 echo -e "${GREEN}✓ API 服务已启动: http://localhost:3002${NC}"
 echo -e "${GREEN}✓ Health Check: http://localhost:3002/${NC}"
 
@@ -136,7 +104,6 @@ if [ -f "$CONFIG_FILE" ]; then
         echo -e "${GREEN}✓ OpenCode MCP 已配置${NC}"
     else
         echo -e "${YELLOW}添加 MCP 配置到 OpenCode...${NC}"
-        # Use Python to update JSON
         python3 -c "
 import json
 import sys
@@ -198,6 +165,7 @@ echo -e "服务状态:"
 echo -e "  - API:     http://localhost:3002"
 echo -e "  - Health:  http://localhost:3002/"
 echo -e "  - MCP:     $MCP_PATH"
+echo -e "  - 数据库:   $SCRIPT_DIR/memory.db"
 echo ""
 echo -e "下一步:"
 echo -e "  1. 重启 OpenCode: opencode"

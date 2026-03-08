@@ -17,8 +17,6 @@
     "@modelcontextprotocol/sdk": "^1.27.1",
     "drizzle-orm": "^0.45.1",
     "hono": "^4.12.5",
-    "ollama": "^0.6.3",
-    "pg": "^8.20.0",
-    "pgvector": "^0.2.1"
+    "ollama": "^0.6.3"
   }
 }
