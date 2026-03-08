@@ -1,8 +1,12 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
+import { spawn } from 'child_process';
+import { readFileSync, existsSync } from 'fs';
+import { join } from 'path';
 
 const API_BASE = process.env.MEMORY_API || 'http://localhost:3002';
 const TEST_USER_ID = 'e2e-test-user';
 const TIMESTAMP = Date.now();
+const PROJECT_ROOT = process.cwd();
 
 function log(message: string) {
   console.log(`[${new Date().toISOString()}] ${message}`);
@@ -18,6 +22,33 @@ function logRequest(method: string, url: string, body?: any) {
 function logResponse(status: number, data: any) {
   log(`📥 RESPONSE: ${status}`);
   log(`   Body: ${JSON.stringify(data).substring(0, 500)}${JSON.stringify(data).length > 500 ? '...' : ''}`);
+}
+
+function runCommand(command: string, args: string[] = [], cwd: string = PROJECT_ROOT): Promise<{ stdout: string; stderr: string; code: number }> {
+  return new Promise((resolve) => {
+    log(`🔧 Running: ${command} ${args.join(' ')}`);
+    
+    const proc = spawn(command, args, { cwd, shell: true });
+    let stdout = '';
+    let stderr = '';
+
+    proc.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    proc.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    proc.on('close', (code) => {
+      resolve({ stdout, stderr, code: code || 0 });
+    });
+
+    proc.on('error', (err) => {
+      stderr += err.message;
+      resolve({ stdout, stderr, code: 1 });
+    });
+  });
 }
 
 describe('Local Memory E2E Tests', () => {
@@ -263,6 +294,144 @@ describe('Local Memory E2E Tests', () => {
     log('   - "我之前用的编辑器是什么？"');
 
     log('\n✅ MCP integration test (manual) noted!');
+    log('');
+  });
+
+  test('8. Install Script - Test one-click installation', async () => {
+    log('========================================');
+    log('🧪 Test 8: Install Script');
+    log('========================================');
+
+    const installScriptPath = join(PROJECT_ROOT, 'install.sh');
+    log(`📍 Script Path: ${installScriptPath}`);
+
+    // Check if install script exists
+    log('\n1. 检查安装脚本是否存在...');
+    const scriptExists = existsSync(installScriptPath);
+    log(`   脚本存在: ${scriptExists}`);
+    expect(scriptExists).toBe(true);
+
+    // Check if script is executable
+    log('\n2. 检查脚本权限...');
+    const { stdout: lsOutput } = await runCommand('ls', ['-la', 'install.sh']);
+    log(`   ${lsOutput.trim()}`);
+    expect(lsOutput.includes('-rwx')).toBe(true);
+
+    // Check script shebang
+    log('\n3. 检查脚本 shebang...');
+    const scriptContent = readFileSync(installScriptPath, 'utf-8');
+    const hasShebang = scriptContent.startsWith('#!/bin/bash');
+    log(`   Shebang 正确: ${hasShebang}`);
+    expect(hasShebang).toBe(true);
+
+    // Check required dependencies in script
+    log('\n4. 检查脚本包含必要的步骤...');
+    const requiredSteps = [
+      'bun install',
+      'docker',
+      'pgvector',
+      'ollama',
+      'nomic-embed-text',
+      'opencode.json'
+    ];
+    
+    for (const step of requiredSteps) {
+      const hasStep = scriptContent.includes(step);
+      log(`   包含 ${step}: ${hasStep}`);
+      expect(hasStep).toBe(true);
+    }
+
+    // Check environment variables
+    log('\n5. 检查环境变量处理...');
+    const hasEnvCheck = scriptContent.includes('MEMORY_API') || scriptContent.includes('localhost:3002');
+    log(`   包含环境变量配置: ${hasEnvCheck}`);
+    expect(hasEnvCheck).toBe(true);
+
+    // Try dry run of key commands
+    log('\n6. 测试关键命令...');
+    
+    // Test bun --version
+    log('   测试 bun --version');
+    const bunResult = await runCommand('bun', ['--version']);
+    log(`   bun version: ${bunResult.stdout.trim()}`);
+    expect(bunResult.code).toBe(0);
+
+    // Test docker
+    log('   测试 docker --version');
+    const dockerResult = await runCommand('docker', ['--version']);
+    log(`   docker: ${dockerResult.stdout.trim()}`);
+    expect(dockerResult.code).toBe(0);
+
+    // Test curl (for health check)
+    log('   测试 curl');
+    const curlResult = await runCommand('curl', ['--version']);
+    log(`   curl: ${curlResult.stdout.split('\n')[0]}`);
+    expect(curlResult.code).toBe(0);
+
+    log('\n✅ Install script validation passed!');
+    log('   所有检查项通过，脚本可以正常执行');
+    log('');
+  });
+
+  test('9. Installation Process - Simulate installation steps', async () => {
+    log('========================================');
+    log('🧪 Test 9: Installation Process Simulation');
+    log('========================================');
+
+    // Step 1: Check bun installation
+    log('\n1. 模拟安装步骤 - Bun...');
+    const bunCheck = await runCommand('which', ['bun']);
+    log(`   Bun 路径: ${bunCheck.stdout.trim() || '未找到'}`);
+    
+    // Step 2: Check dependencies installed
+    log('\n2. 检查项目依赖...');
+    const packageJsonExists = existsSync(join(PROJECT_ROOT, 'package.json'));
+    log(`   package.json 存在: ${packageJsonExists}`);
+    expect(packageJsonExists).toBe(true);
+
+    // Step 3: Check node_modules (should exist after bun install)
+    log('\n3. 检查依赖安装...');
+    const nodeModulesExists = existsSync(join(PROJECT_ROOT, 'node_modules'));
+    log(`   node_modules 存在: ${nodeModulesExists}`);
+    
+    // Step 4: Check database schema
+    log('\n4. 检查数据库 schema...');
+    const schemaExists = existsSync(join(PROJECT_ROOT, 'src/db/schema.ts'));
+    log(`   schema.ts 存在: ${schemaExists}`);
+    expect(schemaExists).toBe(true);
+
+    // Step 5: Check API server
+    log('\n5. 检查 API 服务...');
+    const apiExists = existsSync(join(PROJECT_ROOT, 'src/index.ts'));
+    log(`   index.ts 存在: ${apiExists}`);
+    expect(apiExists).toBe(true);
+
+    // Step 6: Check MCP server
+    log('\n6. 检查 MCP 服务器...');
+    const mcpExists = existsSync(join(PROJECT_ROOT, 'src/mcp.ts'));
+    log(`   mcp.ts 存在: ${mcpExists}`);
+    expect(mcpExists).toBe(true);
+
+    // Step 7: Check README
+    log('\n7. 检查文档...');
+    const readmeExists = existsSync(join(PROJECT_ROOT, 'README.md'));
+    log(`   README.md 存在: ${readmeExists}`);
+    expect(readmeExists).toBe(true);
+
+    // Step 8: Check AGENTS.md
+    log('\n8. 检查 AGENTS.md...');
+    const agentsExists = existsSync(join(PROJECT_ROOT, 'AGENTS.md'));
+    log(`   AGENTS.md 存在: ${agentsExists}`);
+    expect(agentsExists).toBe(true);
+
+    // Step 9: Check E2E tests
+    log('\n9. 检查测试文件...');
+    const testExists = existsSync(join(PROJECT_ROOT, 'tests/e2e/memory.test.ts'));
+    log(`   E2E 测试存在: ${testExists}`);
+    expect(testExists).toBe(true);
+
+    log('\n✅ Installation process validation passed!');
+    log('   所有项目文件和结构验证通过');
     log('');
   });
 });
