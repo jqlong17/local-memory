@@ -14,6 +14,7 @@ function cosineSimilarity(vec1: number[], vec2: number[]): number {
   const dotProduct = vec1.reduce((sum, val, i) => sum + val * vec2[i], 0);
   const mag1 = Math.sqrt(vec1.reduce((sum, val) => sum + val * val, 0));
   const mag2 = Math.sqrt(vec2.reduce((sum, val) => sum + val * val, 0));
+  if (mag1 === 0 || mag2 === 0) return 0;
   return dotProduct / (mag1 * mag2);
 }
 
@@ -22,12 +23,12 @@ export async function searchSimilar(
   userId: string,
   limit: number = 5
 ) {
-  const queryEmbedding = await generateEmbedding(query);
-  const queryVec = JSON.parse(queryEmbedding);
+  const queryEmbeddingStr = await generateEmbedding(query);
+  const queryVec = JSON.parse(queryEmbeddingStr);
   
   const { db } = await import('../db');
   const { memories } = await import('../db/schema');
-  const { eq, desc } = await import('drizzle-orm');
+  const { eq } = await import('drizzle-orm');
   
   const allMemories = await db
     .select()

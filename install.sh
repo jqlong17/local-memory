@@ -62,8 +62,30 @@ else
     ollama pull nomic-embed-text
 fi
 
-# Step 4: Initialize SQLite database
-echo -e "\n${YELLOW}[4/5] 初始化 SQLite 数据库...${NC}"
+# Step 4: Download sqlite-vec extension
+echo -e "\n${YELLOW}[4/5] 下载 sqlite-vec 向量扩展...${NC}"
+mkdir -p "$SCRIPT_DIR/ext"
+if [ -f "$SCRIPT_DIR/ext/vec0.dylib" ]; then
+    echo -e "${GREEN}✓ sqlite-vec 已存在${NC}"
+else
+    echo -e "${YELLOW}下载 sqlite-vec 扩展...${NC}"
+    ARCH=$(uname -m)
+    if [ "$ARCH" = "arm64" ]; then
+        curl -L -o "$SCRIPT_DIR/ext/vec0.dylib" "https://github.com/asg017/sqlite-vec/releases/download/v0.1.6/sqlite-vec-0.1.6-loadable-macos-aarch64.tar.gz" && \
+        tar -xzf "$SCRIPT_DIR/ext/vec0.dylib" -C "$SCRIPT_DIR/ext/" 2>/dev/null || \
+        curl -L -o "$SCRIPT_DIR/ext/sqlite-vec.tar.gz" "https://github.com/asg017/sqlite-vec/releases/download/v0.1.6/sqlite-vec-0.1.6-loadable-macos-aarch64.tar.gz" && \
+        tar -xzf "$SCRIPT_DIR/ext/sqlite-vec.tar.gz" -C "$SCRIPT_DIR/ext/" && \
+        rm -f "$SCRIPT_DIR/ext/sqlite-vec.tar.gz"
+    else
+        curl -L -o "$SCRIPT_DIR/ext/sqlite-vec.tar.gz" "https://github.com/asg017/sqlite-vec/releases/download/v0.1.6/sqlite-vec-0.1.6-loadable-macos-x86_64.tar.gz" && \
+        tar -xzf "$SCRIPT_DIR/ext/sqlite-vec.tar.gz" -C "$SCRIPT_DIR/ext/" && \
+        rm -f "$SCRIPT_DIR/ext/sqlite-vec.tar.gz"
+    fi
+    echo -e "${GREEN}✓ sqlite-vec 下载完成${NC}"
+fi
+
+# Step 5: Initialize SQLite database
+echo -e "\n${YELLOW}[5/5] 初始化 SQLite 数据库...${NC}"
 if [ -f "$SCRIPT_DIR/memory.db" ]; then
     echo -e "${GREEN}✓ 数据库已存在${NC}"
 else

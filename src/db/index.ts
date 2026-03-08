@@ -2,7 +2,8 @@ import { drizzle } from 'drizzle-orm/bun-sqlite';
 import { Database } from 'bun:sqlite';
 import * as schema from './schema';
 
-const sqlite = new Database(process.env.DATABASE_URL || './memory.db');
+const dbPath = process.env.DATABASE_URL || './memory.db';
+const sqlite = new Database(dbPath);
 
 sqlite.exec(`
   CREATE TABLE IF NOT EXISTS memories (
@@ -16,4 +17,7 @@ sqlite.exec(`
   );
 `);
 
+console.log('✅ SQLite database initialized');
+
 export const db = drizzle(sqlite, { schema });
+export { sqlite };
