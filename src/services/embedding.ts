@@ -1,6 +1,29 @@
 import { Ollama } from 'ollama';
+import { getMemoryConfig } from '../config/memory';
 
 const ollama = new Ollama({ host: 'http://localhost:11434' });
+
+/**
+ * 计算时间衰减因子
+ * 使用指数衰减公式: e^(-λ * t)，其中 λ = ln(2) / halfLifeDays
+ */
+function calculateTimeDecayFactor(createdAt: Date, halfLifeDays: number): number {
+  const now = Date.now();
+  const ageMs = now - createdAt.getTime();
+  const ageDays = ageMs / (1000 * 60 * 60 * 24);
+  const lambda = Math.log(2) / halfLifeDays;
+  return Math.exp(-lambda * ageDays);
+}
+
+/**
+ * 标准化时间分数（0-1，越近越高）
+ */
+function normalizeTimeScore(createdAt: Date): number {
+  const now = Date.now();
+  const maxAgeMs = 365 * 24 * 60 * 60 * 1000; // 1年作为最大时间窗口
+  const ageMs = now - createdAt.getTime();
+  return Math.max(0, 1 - ageMs / maxAgeMs);
+}
 
 export async function generateEmbedding(text: string): Promise<string> {
   const response = await ollama.embeddings({
@@ -23,6 +46,7 @@ export async function searchSimilar(
   userId: string,
   limit: number = 5
 ) {
+  const config = getMemoryConfig();
   const queryEmbeddingStr = await generateEmbedding(query);
   const queryVec = JSON.parse(queryEmbeddingStr);
   
@@ -35,23 +59,58 @@ export async function searchSimilar(
     .from(memories)
     .where(eq(memories.userId, userId));
   
-  const withSimilarity = allMemories
+  const scoredMemories = allMemories
     .map(m => {
-      if (!m.embedding) return { ...m, similarity: -1 };
+      if (!m.embedding) return null;
       try {
         const storedVec = JSON.parse(m.embedding);
-        const similarity = cosineSimilarity(queryVec, storedVec);
-        return { ...m, similarity };
+        const semanticScore = cosineSimilarity(queryVec, storedVec);
+        
+        let finalScore: number;
+        const createdAt = m.createdAt || new Date();
+        
+        switch (config.searchMode) {
+          case 'exponential':
+            // 仅指数衰减: 语义相似度 × 时间衰减因子
+            finalScore = semanticScore * calculateTimeDecayFactor(createdAt, config.decayHalfLifeDays);
+            break;
+            
+          case 'hybrid':
+            // 混合评分: 加权组合语义相似度和时间分数
+            const timeScore = normalizeTimeScore(createdAt);
+            finalScore = (1 - config.hybridTimeWeight) * semanticScore + config.hybridTimeWeight * timeScore;
+            break;
+            
+          case 'no-decay':
+          default:
+            // 不衰减: 仅语义相似度
+            finalScore = semanticScore;
+            break;
+        }
+        
+        return { 
+          ...m, 
+          semanticScore,
+          finalScore,
+          timeDecayFactor: config.searchMode === 'exponential' 
+            ? calculateTimeDecayFactor(createdAt, config.decayHalfLifeDays)
+            : undefined
+        };
       } catch {
-        return { ...m, similarity: -1 };
+        return null;
       }
     })
-    .filter(m => m.similarity > -1)
-    .sort((a, b) => b.similarity - a.similarity)
+    .filter((m): m is NonNullable<typeof m> => m !== null)
+    .sort((a, b) => b.finalScore - a.finalScore)
     .slice(0, limit);
   
   return {
-    rows: withSimilarity,
-    rowCount: withSimilarity.length
+    rows: scoredMemories,
+    rowCount: scoredMemories.length,
+    config: {
+      mode: config.searchMode,
+      halfLifeDays: config.decayHalfLifeDays,
+      timeWeight: config.hybridTimeWeight
+    }
   };
 }

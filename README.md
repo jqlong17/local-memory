@@ -199,11 +199,51 @@ opencode mcp add
       "type": "local",
       "command": ["bun", "/path/to/local-memory/src/mcp.ts"],
       "environment": {
-        "MEMORY_API": "http://localhost:3002"
+        "MEMORY_API": "http://localhost:3002",
+        "MEMORY_SEARCH_MODE": "hybrid",
+        "MEMORY_DECAY_HALF_LIFE_DAYS": "30",
+        "MEMORY_HYBRID_TIME_WEIGHT": "0.3"
       },
       "enabled": true
     }
   }
+}
+```
+
+#### 记忆检索配置
+
+支持三种记忆衰退模式（在 `environment` 中配置）：
+
+| 环境变量 | 说明 | 可选值 | 默认值 |
+|---------|------|--------|--------|
+| `MEMORY_SEARCH_MODE` | 检索模式 | `no-decay` / `exponential` / `hybrid` | `hybrid` |
+| `MEMORY_DECAY_HALF_LIFE_DAYS` | 记忆半衰期（天） | 正整数 | `30` |
+| `MEMORY_HYBRID_TIME_WEIGHT` | 混合模式时间权重 | 0-1 之间小数 | `0.3` |
+
+**模式说明：**
+
+1. **`no-decay`**（不衰减）
+   - 仅按语义相似度排序
+   - 适合需要完整历史记录的场景
+
+2. **`exponential`**（指数衰减）
+   - 语义相似度 × 时间衰减因子
+   - 旧记忆按半衰期指数下降
+   - 适合希望旧记忆自然淡化的场景
+
+3. **`hybrid`**（混合评分）- 默认
+   - 加权组合：`(1 - 权重) × 语义分数 + 权重 × 时间分数`
+   - 平衡语义相关性和时效性
+   - 推荐日常使用
+
+**示例配置：**
+
+```json
+"environment": {
+  "MEMORY_API": "http://localhost:3002",
+  "MEMORY_SEARCH_MODE": "hybrid",
+  "MEMORY_DECAY_HALF_LIFE_DAYS": "30",
+  "MEMORY_HYBRID_TIME_WEIGHT": "0.3"
 }
 ```
 
