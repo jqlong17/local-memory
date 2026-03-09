@@ -2,7 +2,7 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 
-const MEMORY_API = process.env.MEMORY_API || 'http://localhost:3002';
+const MEMORY_API = 'http://localhost:40640';
 
 const server = new Server(
   {
